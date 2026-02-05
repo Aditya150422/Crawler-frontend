@@ -1,0 +1,58 @@
+node_modules
+.next
+.env
+dist
+coverage
+*.log
+.idea
+.vscode
+.DS_Store
+*.bak
+*.tmp
+*.swp
+*.swo
+*.swn
+
+# Ignore build artifacts
+build
+out
+*.o
+*.a
+*.so
+*.dll
+*.exe
+# Ignore dependency directories
+vendor
+bower_components
+jspm_packages
+# Ignore IDE and editor specific files
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+*.vscode
+*.idea
+*.sln
+*.suo
+*.ntvs_analysis.dat
+*.njsproj
+*.sln.docstates
+# Ignore OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+# Ignore log files and databases
+*.log
+*.sql
+*.sqlite
+*.db
+*.db3
+*.bak
+*.backup
+*.tmp
+*.swp
+*.swo

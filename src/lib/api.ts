@@ -364,6 +364,85 @@ class ApiClient {
     );
     return this.handleResponse(response);
   }
+
+  // Learning Path endpoints
+  async generateLearningPath(urls: string[]) {
+    const response = await fetch(`${this.baseUrl}/collections/learning-path`, {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ urls }),
+    });
+    return this.handleResponse<{
+      modules: Array<{
+        id: string;
+        title: string;
+        description?: string;
+      }>;
+      nodes: Array<{
+        id: string;
+        label: string;
+        module?: string;
+        difficulty: "beginner" | "intermediate" | "advanced";
+        type: "core_topic" | "sub_topic";
+        position: { x: number; y: number };
+      }>;
+      edges: Array<{
+        source: string;
+        target: string;
+        type: string;
+      }>;
+      learning_path: string[];
+    }>(response);
+  }
+
+  async generateLearningPathForCollection(collectionId: string) {
+    const response = await fetch(
+      `${this.baseUrl}/collections/${collectionId}/learning-path`,
+      {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+      }
+    );
+    return this.handleResponse<{
+      modules: Array<{
+        id: string;
+        title: string;
+        description?: string;
+      }>;
+      nodes: Array<{
+        id: string;
+        label: string;
+        module?: string;
+        difficulty: "beginner" | "intermediate" | "advanced";
+        type: "core_topic" | "sub_topic";
+        position: { x: number; y: number };
+      }>;
+      edges: Array<{
+        source: string;
+        target: string;
+        type: string;
+      }>;
+      learning_path: string[];
+    }>(response);
+  }
+
+  async getCollectionRoutes(collectionId: string) {
+    const response = await fetch(
+      `${this.baseUrl}/collections/${collectionId}/routes`,
+      {
+        headers: this.getAuthHeaders(),
+      }
+    );
+    return this.handleResponse<{
+      collection_id: string;
+      job_id: string;
+      routes_crawled_count: number;
+      routes_not_crawled_count: number;
+      routes_crawled: string[];
+      routes_not_crawled: string[];
+      crawl_summary: Record<string, unknown>;
+    }>(response);
+  }
 }
 
 export const api = new ApiClient();

@@ -1,379 +1,557 @@
 "use client";
 
-import React, { useEffect, useState, use } from "react";
+import React, { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Globe,
   ArrowLeft,
-  MessageSquare,
-  FileText,
-  Clock,
-  ExternalLink,
-  Trash2,
   Loader2,
+  FileText,
+  ExternalLink,
   Search,
+  MessageSquare,
+  Trash2,
+  Sparkles,
+  Map,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  X,
+  MoreVertical,
+  GraduationCap,
+  Files,
+  Globe,
+  Link as LinkIcon,
+  Calendar,
 } from "lucide-react";
-import { Button, Card, CardContent, Badge, Progress, Input, Modal } from "@/components/ui";
-import { useCollectionStore } from "@/store";
+import { Button, Card, CardContent, Badge, Progress, EmptyState, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
-import { socketManager } from "@/lib/socket";
-import { formatDate, extractDomain } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
-interface CollectionDetailPageProps {
-  params: Promise<{ id: string }>;
+interface Page {
+  id: string;
+  url: string;
+  title: string;
+  content?: string;
+  status: string;
+  scraped_at?: string;
+  error?: string;
 }
 
-export default function CollectionDetailPage({ params }: CollectionDetailPageProps) {
-  const resolvedParams = use(params);
+interface CollectionDetail {
+  id: string;
+  name: string;
+  description?: string;
+  base_url: string;
+  status: "pending" | "processing" | "completed" | "error";
+  pages_count: number;
+  created_at: string;
+  updated_at: string;
+  progress?: number;
+  error?: string;
+  pages?: Page[];
+}
+
+export default function CollectionDetailPage() {
+  const params = useParams();
   const router = useRouter();
-  const { currentCollection, fetchCollection, deleteCollection, updateCollectionStatus } =
-    useCollectionStore();
+  const collectionId = params.id as string;
+
+  const [collection, setCollection] = useState<CollectionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Array<{
-    url: string;
-    title: string;
-    content: string;
-    similarity: number;
-  }>>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [jobProgress, setJobProgress] = useState<{ percentage: number; message: string } | null>(
-    null
-  );
+  const [selectedPage, setSelectedPage] = useState<Page | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   useEffect(() => {
-    const loadCollection = async () => {
-      setIsLoading(true);
-      await fetchCollection(resolvedParams.id);
-      setIsLoading(false);
-    };
     loadCollection();
+  }, [collectionId]);
 
-    const socket = socketManager.connect();
-
-    const handleProgress = (data: { job_id: string; percentage: number; message: string }) => {
-      if (currentCollection?.job_id === data.job_id) {
-        setJobProgress({ percentage: data.percentage, message: data.message });
-      }
-    };
-
-    const handleJobUpdate = (data: { job_id: string; status: string; pages_stored?: number }) => {
-      if (currentCollection?.job_id === data.job_id) {
-        updateCollectionStatus(resolvedParams.id, data.status, data.pages_stored);
-        if (data.status === "completed" || data.status === "error") {
-          setJobProgress(null);
-          fetchCollection(resolvedParams.id);
-        }
-      }
-    };
-
-    socketManager.on("progress", handleProgress);
-    socketManager.on("job_update", handleJobUpdate);
-
-    return () => {
-      socketManager.off("progress", handleProgress);
-      socketManager.off("job_update", handleJobUpdate);
-    };
-  }, [resolvedParams.id, fetchCollection, currentCollection?.job_id, updateCollectionStatus]);
-
-  useEffect(() => {
-    if (
-      currentCollection?.job_id &&
-      (currentCollection.status === "crawling" ||
-        currentCollection.status === "embedding" ||
-        currentCollection.status === "pending")
-    ) {
-      socketManager.joinJob(currentCollection.job_id);
-    }
-  }, [currentCollection?.job_id, currentCollection?.status]);
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || !currentCollection) return;
-
-    setIsSearching(true);
+  const loadCollection = async () => {
     try {
-      const result = await api.searchContent({
-        query: searchQuery,
-        collection_name: currentCollection.name,
-        top_k: 5,
-      });
-      setSearchResults(result.results);
+      const data = await api.getCollection(collectionId);
+      setCollection(data as CollectionDetail);
     } catch (error) {
-      toast.error("Search failed");
+      console.error("Failed to load collection:", error);
+      toast.error("Failed to load collection");
     } finally {
-      setIsSearching(false);
+      setIsLoading(false);
     }
   };
 
   const handleDelete = async () => {
+    setIsDeleting(true);
     try {
-      await deleteCollection(resolvedParams.id);
-      toast.success("Collection deleted");
+      await api.deleteCollection(collectionId);
+      toast.success("Collection deleted successfully");
       router.push("/dashboard/collections");
     } catch (error) {
-      toast.error((error as Error).message || "Failed to delete");
+      console.error("Failed to delete collection:", error);
+      toast.error("Failed to delete collection");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusConfig = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge variant="success" size="md">Completed</Badge>;
-      case "crawling":
-        return <Badge variant="warning" size="md" pulse>Crawling</Badge>;
-      case "embedding":
-        return <Badge variant="warning" size="md" pulse>Embedding</Badge>;
-      case "pending":
-        return <Badge variant="info" size="md" pulse>Pending</Badge>;
+        return { icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", label: "Completed" };
+      case "processing":
+        return { icon: Loader2, color: "text-primary-400", bg: "bg-primary-500/10", label: "Processing" };
       case "error":
-        return <Badge variant="error" size="md">Error</Badge>;
+        return { icon: AlertCircle, color: "text-rose-400", bg: "bg-rose-500/10", label: "Error" };
       default:
-        return <Badge size="md">{status}</Badge>;
+        return { icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", label: "Pending" };
     }
+  };
+
+  const filteredPages = collection?.pages?.filter((page) =>
+    page.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    page.url.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!currentCollection) {
-    return (
-      <div className="text-center py-20">
-        <h2 className="text-xl font-semibold text-white mb-2">Collection not found</h2>
-        <Link href="/dashboard/collections">
-          <Button variant="primary">Back to Collections</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/collections">
-          <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
-            Back
-          </Button>
-        </Link>
-      </div>
-
-      {/* Collection Info */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <Card className="flex-1">
-          <CardContent>
-            <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500/20 to-accent-cyan/20 flex items-center justify-center">
-                <Globe className="w-8 h-8 text-primary-400" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold text-white">{currentCollection.name}</h1>
-                  {getStatusBadge(currentCollection.status)}
-                </div>
-                <a
-                  href={currentCollection.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-primary-400 hover:text-primary-300 transition-colors"
-                >
-                  {extractDomain(currentCollection.url)}
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-
-            {jobProgress && (
-              <div className="mt-6">
-                <Progress value={jobProgress.percentage} showLabel size="md" />
-                <p className="text-sm text-gray-400 mt-2">{jobProgress.message}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-              <div className="text-center p-4 bg-dark-700/30 rounded-xl">
-                <div className="text-2xl font-bold text-white">
-                  {currentCollection.pages_count}
-                </div>
-                <div className="text-sm text-gray-400">Pages</div>
-              </div>
-              <div className="text-center p-4 bg-dark-700/30 rounded-xl">
-                <div className="text-2xl font-bold text-white">
-                  {currentCollection.chat_sessions?.length || 0}
-                </div>
-                <div className="text-sm text-gray-400">Chat Sessions</div>
-              </div>
-              <div className="text-center p-4 bg-dark-700/30 rounded-xl">
-                <div className="text-sm font-medium text-white">
-                  {formatDate(currentCollection.created_at)}
-                </div>
-                <div className="text-sm text-gray-400">Created</div>
-              </div>
-              <div className="text-center p-4 bg-dark-700/30 rounded-xl">
-                <div className="text-sm font-medium text-white">
-                  {formatDate(currentCollection.updated_at)}
-                </div>
-                <div className="text-sm text-gray-400">Updated</div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              {currentCollection.status === "completed" && (
-                <Link href={`/dashboard/chat?collection=${currentCollection.id}`}>
-                  <Button
-                    variant="primary"
-                    leftIcon={<MessageSquare className="w-5 h-5" />}
-                  >
-                    Start Chat
-                  </Button>
-                </Link>
-              )}
-              <Button
-                variant="danger"
-                leftIcon={<Trash2 className="w-5 h-5" />}
-                onClick={() => setDeleteModalOpen(true)}
-              >
-                Delete
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search Section */}
-      {currentCollection.status === "completed" && (
-        <Card>
-          <CardContent>
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Search Collection
-            </h2>
-            <div className="flex gap-3">
-              <Input
-                placeholder="Search within this collection..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leftIcon={<Search className="w-5 h-5" />}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              />
-              <Button
-                variant="primary"
-                onClick={handleSearch}
-                isLoading={isSearching}
-              >
-                Search
-              </Button>
-            </div>
-
-            {searchResults.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-sm font-medium text-gray-400">
-                  {searchResults.length} results found
-                </h3>
-                {searchResults.map((result, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="p-4 bg-dark-700/30 rounded-xl border border-dark-600/50"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-white">{result.title}</h4>
-                      <Badge variant="info" size="sm">
-                        {(result.similarity * 100).toFixed(0)}% match
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-400 line-clamp-3 mb-2">
-                      {result.content}
-                    </p>
-                    <a
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1"
-                    >
-                      {result.url}
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Chat Sessions */}
-      {currentCollection.chat_sessions && currentCollection.chat_sessions.length > 0 && (
-        <Card>
-          <div className="px-6 py-4 border-b border-dark-600/50">
-            <h2 className="text-lg font-semibold text-white">Chat Sessions</h2>
-          </div>
-          <CardContent className="p-0">
-            <div className="divide-y divide-dark-600/50">
-              {currentCollection.chat_sessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/dashboard/chat?collection=${currentCollection.id}&session=${session.id}`}
-                  className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-primary-500/10 flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-primary-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-white truncate">
-                      {session.title || "Untitled Chat"}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {session.messages?.length || 0} messages
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <Clock className="w-3 h-3" />
-                    {formatDate(session.updated_at)}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Delete Modal */}
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Delete Collection"
-        size="sm"
-      >
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-            <Trash2 className="w-8 h-8 text-red-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">
-            Delete &quot;{currentCollection.name}&quot;?
-          </h3>
-          <p className="text-gray-400 mb-6">
-            This will permanently delete all scraped data and chat sessions.
-          </p>
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setDeleteModalOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete} className="flex-1">
-              Delete
-            </Button>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-10 h-10 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="w-48 h-6" />
+            <Skeleton className="w-32 h-4" />
           </div>
         </div>
-      </Modal>
-    </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!collection) {
+    return (
+      <Card className="p-8">
+        <EmptyState
+          icon={AlertCircle}
+          title="Collection Not Found"
+          description="The collection you're looking for doesn't exist or has been deleted."
+          action={
+            <Link href="/dashboard/collections">
+              <Button variant="primary">Back to Collections</Button>
+            </Link>
+          }
+        />
+      </Card>
+    );
+  }
+
+  const statusConfig = getStatusConfig(collection.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-4 sm:space-y-6"
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <Link href="/dashboard/collections" className="mt-1">
+            <button className="p-2 rounded-lg hover:bg-white/5 text-gray-400 transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
+                {collection.name}
+              </h1>
+              <Badge variant={collection.status === "completed" ? "success" : collection.status === "error" ? "error" : "info"}>
+                <StatusIcon className={cn("w-3 h-3 mr-1", collection.status === "processing" && "animate-spin")} />
+                {statusConfig.label}
+              </Badge>
+            </div>
+            <p className="text-gray-400 text-sm mt-1 truncate">
+              {collection.base_url}
+            </p>
+          </div>
+        </div>
+
+        {/* Desktop Actions */}
+        <div className="hidden sm:flex items-center gap-2">
+          <Link href={`/dashboard/chat?collection=${collection.id}`}>
+            <Button variant="secondary" leftIcon={<MessageSquare className="w-4 h-4" />}>
+              Chat
+            </Button>
+          </Link>
+          <Link href={`/dashboard/learning-path?collection=${collection.id}`}>
+            <Button variant="secondary" leftIcon={<GraduationCap className="w-4 h-4" />}>
+              Learning Path
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            onClick={() => setShowDeleteModal(true)}
+            className="text-rose-400 hover:bg-rose-500/10"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Mobile Actions */}
+        <div className="flex sm:hidden items-center gap-2">
+          <Link href={`/dashboard/chat?collection=${collection.id}`} className="flex-1">
+            <Button variant="secondary" className="w-full" size="sm">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat
+            </Button>
+          </Link>
+          <Link href={`/dashboard/learning-path?collection=${collection.id}`} className="flex-1">
+            <Button variant="secondary" className="w-full" size="sm">
+              <GraduationCap className="w-4 h-4 mr-2" />
+              Learn
+            </Button>
+          </Link>
+          <button
+            onClick={() => setShowMobileActions(!showMobileActions)}
+            className="p-2 rounded-lg hover:bg-white/5 text-gray-400"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Actions Dropdown */}
+      <AnimatePresence>
+        {showMobileActions && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="sm:hidden overflow-hidden"
+          >
+            <Card className="p-2">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setShowMobileActions(false);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-rose-500/10 text-rose-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Collection</span>
+              </button>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-dark-800/50 rounded-xl p-4 border border-dark-700/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-accent-cyan/20 flex items-center justify-center">
+              <Files className="w-5 h-5 text-primary-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-white">{collection.pages_count}</div>
+              <div className="text-xs text-gray-400">Total Pages</div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-dark-800/50 rounded-xl p-4 border border-dark-700/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-emerald-400">
+                {collection.pages?.filter((p) => p.status === "completed").length || 0}
+              </div>
+              <div className="text-xs text-gray-400">Scraped</div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-dark-800/50 rounded-xl p-4 border border-dark-700/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-400">
+                {(() => {
+                  try {
+                    return new URL(collection.base_url).hostname.split(".").slice(-2).join(".");
+                  } catch {
+                    return collection.base_url || "N/A";
+                  }
+                })()}
+              </div>
+              <div className="text-xs text-gray-400">Domain</div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-dark-800/50 rounded-xl p-4 border border-dark-700/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-violet-400" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white truncate">
+                {new Date(collection.created_at).toLocaleDateString()}
+              </div>
+              <div className="text-xs text-gray-400">Created</div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Progress bar for processing */}
+      {collection.status === "processing" && collection.progress !== undefined && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Scraping progress</span>
+              <span className="text-sm font-medium text-white">{collection.progress}%</span>
+            </div>
+            <Progress value={collection.progress} className="h-2" />
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Error display */}
+      {collection.status === "error" && collection.error && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="p-4 border-rose-500/20 bg-rose-500/5">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-medium text-rose-400">Error occurred</h4>
+                <p className="text-sm text-gray-400 mt-1">{collection.error}</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Pages Section */}
+      <Card>
+        <div className="p-4 border-b border-dark-700/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">
+              Pages ({filteredPages.length})
+            </h3>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search pages..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full sm:w-64 pl-10 pr-4 py-2 bg-dark-700/50 border border-dark-600/50 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="divide-y divide-dark-700/50">
+          {filteredPages.length > 0 ? (
+            filteredPages.map((page, index) => {
+              const pageStatus = getStatusConfig(page.status);
+              const PageStatusIcon = pageStatus.icon;
+              return (
+                <motion.div
+                  key={page.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.02 }}
+                  onClick={() => setSelectedPage(selectedPage?.id === page.id ? null : page)}
+                  className={cn(
+                    "p-4 hover:bg-white/5 cursor-pointer transition-colors",
+                    selectedPage?.id === page.id && "bg-white/5"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", pageStatus.bg)}>
+                      <PageStatusIcon className={cn("w-4 h-4", pageStatus.color, page.status === "processing" && "animate-spin")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-white truncate">
+                          {page.title || "Untitled"}
+                        </h4>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                        {page.url}
+                      </p>
+                      
+                      {/* Expanded content */}
+                      <AnimatePresence>
+                        {selectedPage?.id === page.id && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-3 pt-3 border-t border-dark-700/50"
+                          >
+                            <div className="flex flex-wrap gap-2">
+                              <a
+                                href={page.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-700/50 rounded-lg text-xs text-gray-300 hover:bg-dark-600/50 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Open URL
+                              </a>
+                              {page.scraped_at && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-700/50 rounded-lg text-xs text-gray-400">
+                                  <Clock className="w-3 h-3" />
+                                  {formatDate(page.scraped_at)}
+                                </span>
+                              )}
+                            </div>
+                            {page.error && (
+                              <p className="text-xs text-rose-400 mt-2">
+                                Error: {page.error}
+                              </p>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <ChevronRight className={cn(
+                      "w-4 h-4 text-gray-500 transition-transform flex-shrink-0",
+                      selectedPage?.id === page.id && "rotate-90"
+                    )} />
+                  </div>
+                </motion.div>
+              );
+            })
+          ) : (
+            <div className="p-8">
+              <EmptyState
+                icon={FileText}
+                title={searchQuery ? "No pages found" : "No pages yet"}
+                description={searchQuery ? "Try a different search term" : "Pages will appear here once scraping starts"}
+              />
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowDeleteModal(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-dark-800 rounded-2xl border border-dark-600/50 p-6 shadow-2xl"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Delete Collection</h3>
+                  <p className="text-sm text-gray-400">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to delete <strong className="text-white">{collection.name}</strong>? 
+                All {collection.pages_count} pages and associated data will be permanently removed.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleDelete}
+                  isLoading={isDeleting}
+                  className="flex-1 bg-rose-500 hover:bg-rose-600"
+                >
+                  Delete
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

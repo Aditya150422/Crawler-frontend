@@ -168,3 +168,42 @@ export interface CollectionUpdateEvent {
   pages_count?: number;
   error?: string;
 }
+
+// Learning Path Types
+export interface LearningModule {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface NodePosition {
+  x: number;
+  y: number;
+}
+
+export interface LearningNode {
+  id: string;
+  label: string;
+  module?: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  type: "core_topic" | "sub_topic";
+  position: NodePosition;
+  level?: string; // backward compatibility
+}
+
+export interface LearningEdge {
+  source: string;
+  target: string;
+  type: string;
+}
+
+export interface LearningPathResponse {
+  modules: LearningModule[];
+  nodes: LearningNode[];
+  edges: LearningEdge[];
+  learning_path: string[];
+}
+
+export interface GenerateLearningPathRequest {
+  urls: string[];
+}

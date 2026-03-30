@@ -18,12 +18,15 @@ import {
   BookOpen,
   Clock,
   ChevronDown,
-  X,
 } from "lucide-react";
-import { Button, Card, CardContent, Badge, EmptyState, Skeleton } from "@/components/ui";
+import { Button, Card, Badge, EmptyState, Modal } from "@/components/ui";
 import { LearningPathGraph, LearningPathPanel } from "@/components/learning-path";
 import { api } from "@/lib/api";
-import { LearningPathResponse, LearningNode } from "@/types";
+import {
+  LearningPathResponse,
+  LearningNode,
+  LearningNodeSummaryResponse,
+} from "@/types";
 import { useCollectionStore } from "@/store";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -37,6 +40,11 @@ function LearningPathContent() {
   const [learningPath, setLearningPath] = useState<LearningPathResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<LearningNode | null>(null);
+  const [summaryNode, setSummaryNode] = useState<LearningNode | null>(null);
+  const [summaryLoadingNodeId, setSummaryLoadingNodeId] = useState<string | null>(null);
+  const [nodeSummaries, setNodeSummaries] = useState<
+    Record<string, LearningNodeSummaryResponse>
+  >({});
   const [showPanel, setShowPanel] = useState(true);
   const [collectionName, setCollectionName] = useState<string>("");
   const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
@@ -67,8 +75,25 @@ function LearningPathContent() {
     
     setIsLoading(true);
     try {
+      const result = await api.getLearningPathForCollection(collectionId);
+      setLearningPath(result);
+      setNodeSummaries({});
+    } catch (error) {
+      console.error("Failed to load learning path:", error);
+      setLearningPath(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegeneratePath = async () => {
+    if (!collectionId) return;
+
+    setIsLoading(true);
+    try {
       const result = await api.generateLearningPathForCollection(collectionId);
       setLearningPath(result);
+      setNodeSummaries({});
       toast.success("Learning path generated successfully!");
     } catch (error) {
       console.error("Failed to generate learning path:", error);
@@ -78,8 +103,25 @@ function LearningPathContent() {
     }
   };
 
+  const fetchNodeSummary = async (node: LearningNode) => {
+    if (!collectionId || nodeSummaries[node.id]) return;
+
+    setSummaryLoadingNodeId(node.id);
+    try {
+      const summary = await api.getLearningPathNodeSummary(collectionId, node.id);
+      setNodeSummaries((prev) => ({ ...prev, [node.id]: summary }));
+    } catch (error) {
+      console.error("Failed to fetch node summary:", error);
+      toast.error("Failed to load topic summary");
+    } finally {
+      setSummaryLoadingNodeId(null);
+    }
+  };
+
   const handleNodeClick = (node: LearningNode) => {
     setSelectedNode(node);
+    setSummaryNode(node);
+    fetchNodeSummary(node);
     if (!showPanel) setShowPanel(true);
   };
 
@@ -87,6 +129,8 @@ function LearningPathContent() {
     const node = learningPath?.nodes.find((n) => n.id === nodeId);
     if (node) {
       setSelectedNode(node);
+      setSummaryNode(node);
+      fetchNodeSummary(node);
     }
   };
 
@@ -110,7 +154,16 @@ function LearningPathContent() {
   };
 
   const completedCollections = collections.filter((c) => c.status === "completed");
-  const selectedCollection = collections.find((c) => c.id === collectionId);
+  const summaryData = summaryNode ? nodeSummaries[summaryNode.id] : null;
+  const isSummaryLoading =
+    Boolean(summaryNode) &&
+    (summaryLoadingNodeId === summaryNode?.id || (!summaryData && !summaryNode?.summary));
+  const summaryTitle = summaryData?.node_label || summaryNode?.label || "Topic Summary";
+  const summaryText =
+    summaryData?.summary ||
+    summaryNode?.summary ||
+    summaryNode?.description ||
+    "No summary available for this topic yet.";
 
   // No collection selected
   if (!collectionId) {
@@ -224,7 +277,7 @@ function LearningPathContent() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={loadLearningPath}
+            onClick={handleRegeneratePath}
             disabled={isLoading}
             leftIcon={<RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />}
           >
@@ -332,7 +385,7 @@ function LearningPathContent() {
             action={
               <Button
                 variant="primary"
-                onClick={loadLearningPath}
+                onClick={handleRegeneratePath}
                 leftIcon={<Sparkles className="w-4 h-4" />}
               >
                 Generate Roadmap
@@ -406,6 +459,39 @@ function LearningPathContent() {
           </div>
         </motion.div>
       )}
+
+      <Modal
+        isOpen={Boolean(summaryNode)}
+        onClose={() => setSummaryNode(null)}
+        title={summaryTitle}
+        size="sm"
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-gray-400">
+            <span>{summaryData?.difficulty || summaryNode?.difficulty}</span>
+            <span className="text-dark-500">•</span>
+            <span>
+              {(summaryData?.type || summaryNode?.type) === "core_topic"
+                ? "Core Topic"
+                : "Sub Topic"}
+            </span>
+            {(summaryData?.module || summaryNode?.module) && (
+              <>
+                <span className="text-dark-500">•</span>
+                <span>{summaryData?.module || summaryNode?.module}</span>
+              </>
+            )}
+          </div>
+          {isSummaryLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <Loader2 className="w-4 h-4 animate-spin text-primary-400" />
+              Loading summary...
+            </div>
+          ) : (
+            <p className="text-sm leading-relaxed text-gray-200">{summaryText}</p>
+          )}
+        </div>
+      </Modal>
     </motion.div>
   );
 }

@@ -185,6 +185,8 @@ export interface LearningNode {
   id: string;
   label: string;
   module?: string;
+  summary?: string;
+  description?: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   type: "core_topic" | "sub_topic";
   position: NodePosition;
@@ -206,4 +208,14 @@ export interface LearningPathResponse {
 
 export interface GenerateLearningPathRequest {
   urls: string[];
+}
+
+export interface LearningNodeSummaryResponse {
+  collection_id: string;
+  node_id: string;
+  node_label: string;
+  summary: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  module?: string;
+  type: "core_topic" | "sub_topic";
 }

@@ -78,7 +78,6 @@ export default function DashboardLayout({
     }
   }, [fetchUser, user]);
 
-  // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);

@@ -382,6 +382,8 @@ class ApiClient {
         id: string;
         label: string;
         module?: string;
+        summary?: string;
+        description?: string;
         difficulty: "beginner" | "intermediate" | "advanced";
         type: "core_topic" | "sub_topic";
         position: { x: number; y: number };
@@ -413,6 +415,8 @@ class ApiClient {
         id: string;
         label: string;
         module?: string;
+        summary?: string;
+        description?: string;
         difficulty: "beginner" | "intermediate" | "advanced";
         type: "core_topic" | "sub_topic";
         position: { x: number; y: number };
@@ -423,6 +427,58 @@ class ApiClient {
         type: string;
       }>;
       learning_path: string[];
+    }>(response);
+  }
+
+  async getLearningPathForCollection(collectionId: string) {
+    const response = await fetch(
+      `${this.baseUrl}/collections/${collectionId}/learning-path`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
+    return this.handleResponse<{
+      modules: Array<{
+        id: string;
+        title: string;
+        description?: string;
+      }>;
+      nodes: Array<{
+        id: string;
+        label: string;
+        module?: string;
+        summary?: string;
+        description?: string;
+        difficulty: "beginner" | "intermediate" | "advanced";
+        type: "core_topic" | "sub_topic";
+        position: { x: number; y: number };
+      }>;
+      edges: Array<{
+        source: string;
+        target: string;
+        type: string;
+      }>;
+      learning_path: string[];
+    }>(response);
+  }
+
+  async getLearningPathNodeSummary(collectionId: string, nodeId: string) {
+    const response = await fetch(
+      `${this.baseUrl}/collections/${collectionId}/learning-path/nodes/${nodeId}/summary`,
+      {
+        method: "GET",
+        headers: this.getAuthHeaders(),
+      }
+    );
+    return this.handleResponse<{
+      collection_id: string;
+      node_id: string;
+      node_label: string;
+      summary: string;
+      difficulty: "beginner" | "intermediate" | "advanced";
+      module?: string;
+      type: "core_topic" | "sub_topic";
     }>(response);
   }
 

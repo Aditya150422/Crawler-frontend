@@ -482,6 +482,105 @@ class ApiClient {
     }>(response);
   }
 
+  // Quiz endpoints
+  async getQuizCollections() {
+    const response = await fetch(`${this.baseUrl}/quizzes/collections`, {
+      method: "GET",
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse<{
+      collections: Array<{
+        collection_id: string;
+        name: string;
+        url: string;
+        available_questions: number;
+      }>;
+      count: number;
+    }>(response);
+  }
+
+  async startQuiz(data: {
+    collection_id: string;
+    question_count: number;
+    user_id?: string;
+    scope_mode: "focused" | "broad";
+    focus_query?: string;
+    min_semantic_score?: number;
+    max_questions_per_url?: number;
+    min_distinct_urls?: number;
+    use_llm_classifier?: boolean;
+  }) {
+    const response = await fetch(`${this.baseUrl}/quizzes/start`, {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<{
+      quiz_session_id: string;
+      collection_id: string;
+      total_questions: number;
+      questions: Array<{
+        id: string;
+        question: string;
+        options: {
+          A: string;
+          B: string;
+          C: string;
+          D: string;
+        };
+      }>;
+      created_at: string;
+    }>(response);
+  }
+
+  async submitQuiz(
+    quizSessionId: string,
+    data: {
+      answers: Array<{
+        question_id: string;
+        selected_option: "A" | "B" | "C" | "D";
+      }>;
+    }
+  ) {
+    const response = await fetch(
+      `${this.baseUrl}/quizzes/${quizSessionId}/submit`,
+      {
+        method: "POST",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      }
+    );
+    return this.handleResponse<{
+      quiz_session_id: string;
+      score: number;
+      total_questions: number;
+      percentage: number;
+      wrong_answers: Array<{
+        question_id: string;
+        question: string;
+        selected_option: "A" | "B" | "C" | "D";
+        correct_option: "A" | "B" | "C" | "D";
+        options: {
+          A: string;
+          B: string;
+          C: string;
+          D: string;
+        };
+        explanation: string;
+      }>;
+      llm_suggestions: string;
+      completed_at: string;
+    }>(response);
+  }
+
+  async getQuizSession(quizSessionId: string) {
+    const response = await fetch(`${this.baseUrl}/quizzes/${quizSessionId}`, {
+      method: "GET",
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
   async getCollectionRoutes(collectionId: string) {
     const response = await fetch(
       `${this.baseUrl}/collections/${collectionId}/routes`,

@@ -20,6 +20,7 @@ import {
   FileText,
   Activity,
   Zap,
+  Brain,
 } from "lucide-react";
 import { Button, Card, Badge, Progress, EmptyState, Skeleton } from "@/components/ui";
 import { StatCard } from "@/components/ui";
@@ -60,6 +61,14 @@ const quickActions: QuickAction[] = [
     icon: GraduationCap,
     href: "/dashboard/learning-path",
     color: "from-amber-500/20 to-orange-500/20",
+  },
+  {
+    id: "quizzes",
+    label: "Quizzes",
+    description: "Practice with MCQs",
+    icon: Brain,
+    href: "/dashboard/quizzes",
+    color: "from-emerald-500/20 to-teal-500/20",
   },
 ];
 
@@ -177,7 +186,7 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           {quickActions.map((action, index) => {
             const Icon = action.icon;
             return (

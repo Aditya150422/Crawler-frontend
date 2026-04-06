@@ -17,6 +17,7 @@ import {
   ChevronRight,
   User,
   Map,
+  Brain,
   Bell,
   Search,
   Command,
@@ -49,6 +50,12 @@ const navItems = [
     label: "Learning Path", 
     icon: Map,
     description: "Generate curricula"
+  },
+  {
+    href: "/dashboard/quizzes",
+    label: "Quizzes",
+    icon: Brain,
+    description: "Practice and improve",
   },
   { 
     href: "/dashboard/settings", 

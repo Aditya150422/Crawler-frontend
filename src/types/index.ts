@@ -219,3 +219,64 @@ export interface LearningNodeSummaryResponse {
   module?: string;
   type: "core_topic" | "sub_topic";
 }
+
+// Quiz Types
+export type QuizOption = "A" | "B" | "C" | "D";
+export type QuizScopeMode = "focused" | "broad";
+
+export interface QuizCollectionInfo {
+  collection_id: string;
+  name: string;
+  url: string;
+  available_questions: number;
+}
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: Record<QuizOption, string>;
+}
+
+export interface QuizAnswerPayload {
+  question_id: string;
+  selected_option: QuizOption;
+}
+
+export interface QuizWrongAnswer {
+  question_id: string;
+  question: string;
+  selected_option: QuizOption;
+  correct_option: QuizOption;
+  options: Record<QuizOption, string>;
+  explanation: string;
+}
+
+export interface QuizStartResponse {
+  quiz_session_id: string;
+  collection_id: string;
+  total_questions: number;
+  questions: QuizQuestion[];
+  created_at: string;
+}
+
+export interface QuizStartRequest {
+  collection_id: string;
+  question_count: number;
+  user_id?: string;
+  scope_mode: QuizScopeMode;
+  focus_query?: string;
+  min_semantic_score?: number;
+  max_questions_per_url?: number;
+  min_distinct_urls?: number;
+  use_llm_classifier?: boolean;
+}
+
+export interface QuizSubmitResponse {
+  quiz_session_id: string;
+  score: number;
+  total_questions: number;
+  percentage: number;
+  wrong_answers: QuizWrongAnswer[];
+  llm_suggestions: string;
+  completed_at: string;
+}

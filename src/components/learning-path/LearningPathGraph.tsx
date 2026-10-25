@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LearningNode,
@@ -65,7 +65,7 @@ function calculateLayout(nodes: LearningNode[], edges: LearningEdge[]) {
 
     const totalWidth =
       levelNodes.length * nodeWidth + (levelNodes.length - 1) * horizontalGap;
-    let xOffset = Math.max(50, (800 - totalWidth) / 2);
+    const xOffset = Math.max(50, (800 - totalWidth) / 2);
 
     levelNodes.forEach((node, index) => {
       layoutNodes.push({
@@ -252,8 +252,6 @@ export default function LearningPathGraph({
   selectedNodeId,
 }: LearningPathGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-
   // Calculate layout
   const layoutNodes = useMemo(() => calculateLayout(data.nodes, data.edges), [data.nodes, data.edges]);
 
@@ -265,16 +263,16 @@ export default function LearningPathGraph({
   }, [layoutNodes]);
 
   // Calculate container dimensions
-  useEffect(() => {
-    if (layoutNodes.length === 0) return;
+  const dimensions = useMemo(() => {
+    if (layoutNodes.length === 0) return { width: 800, height: 600 };
 
     const maxX = Math.max(...layoutNodes.map((n) => n.position.x)) + 230;
     const maxY = Math.max(...layoutNodes.map((n) => n.position.y)) + 120;
 
-    setDimensions({
+    return {
       width: Math.max(800, maxX),
       height: Math.max(400, maxY),
-    });
+    };
   }, [layoutNodes]);
 
   // Get nodes in the learning path for highlighting

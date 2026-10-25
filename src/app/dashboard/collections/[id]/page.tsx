@@ -70,20 +70,15 @@ export default function CollectionDetailPage() {
   const [showMobileActions, setShowMobileActions] = useState(false);
 
   useEffect(() => {
-    loadCollection();
+    api
+      .getCollection(collectionId)
+      .then((data) => setCollection(data as CollectionDetail))
+      .catch((error) => {
+        console.error("Failed to load collection:", error);
+        toast.error("Failed to load collection");
+      })
+      .finally(() => setIsLoading(false));
   }, [collectionId]);
-
-  const loadCollection = async () => {
-    try {
-      const data = await api.getCollection(collectionId);
-      setCollection(data as CollectionDetail);
-    } catch (error) {
-      console.error("Failed to load collection:", error);
-      toast.error("Failed to load collection");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDelete = async () => {
     setIsDeleting(true);

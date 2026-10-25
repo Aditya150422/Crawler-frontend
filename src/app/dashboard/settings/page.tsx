@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -69,13 +69,6 @@ export default function SettingsPage() {
 
   // Appearance state
   const [theme, setTheme] = useState<"dark" | "light" | "system">("dark");
-
-  useEffect(() => {
-    if (user) {
-      setName(user.username || "");
-      setEmail(user.email || "");
-    }
-  }, [user]);
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -381,7 +374,7 @@ export default function SettingsPage() {
                     {newPassword && confirmPassword && newPassword !== confirmPassword && (
                       <p className="text-xs text-rose-400 mt-2 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
-                        Passwords don't match
+                        Passwords don&apos;t match
                       </p>
                     )}
                   </div>

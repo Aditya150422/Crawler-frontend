@@ -38,7 +38,9 @@ function LearningPathContent() {
 
   const { collections, fetchCollections } = useCollectionStore();
   const [learningPath, setLearningPath] = useState<LearningPathResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [loadedCollectionId, setLoadedCollectionId] = useState<string | null>(null);
+  const isLoading = isRegenerating || (!!collectionId && loadedCollectionId !== collectionId);
   const [selectedNode, setSelectedNode] = useState<LearningNode | null>(null);
   const [summaryNode, setSummaryNode] = useState<LearningNode | null>(null);
   const [summaryLoadingNodeId, setSummaryLoadingNodeId] = useState<string | null>(null);
@@ -54,42 +56,43 @@ function LearningPathContent() {
   }, [fetchCollections]);
 
   useEffect(() => {
-    if (collectionId) {
-      loadLearningPath();
-      loadCollectionInfo();
-    }
+    if (!collectionId) return;
+    let cancelled = false;
+
+    api
+      .getLearningPathForCollection(collectionId)
+      .then((result) => {
+        if (cancelled) return;
+        setLearningPath(result);
+        setNodeSummaries({});
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Failed to load learning path:", error);
+        setLearningPath(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedCollectionId(collectionId);
+      });
+
+    api
+      .getCollection(collectionId)
+      .then((collection) => {
+        if (!cancelled) setCollectionName((collection as { name: string }).name || "");
+      })
+      .catch((error) => {
+        console.error("Failed to load collection info:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [collectionId]);
-
-  const loadCollectionInfo = async () => {
-    if (!collectionId) return;
-    try {
-      const collection = await api.getCollection(collectionId);
-      setCollectionName((collection as { name: string }).name || "");
-    } catch (error) {
-      console.error("Failed to load collection info:", error);
-    }
-  };
-
-  const loadLearningPath = async () => {
-    if (!collectionId) return;
-    
-    setIsLoading(true);
-    try {
-      const result = await api.getLearningPathForCollection(collectionId);
-      setLearningPath(result);
-      setNodeSummaries({});
-    } catch (error) {
-      console.error("Failed to load learning path:", error);
-      setLearningPath(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleRegeneratePath = async () => {
     if (!collectionId) return;
 
-    setIsLoading(true);
+    setIsRegenerating(true);
     try {
       const result = await api.generateLearningPathForCollection(collectionId);
       setLearningPath(result);
@@ -99,7 +102,7 @@ function LearningPathContent() {
       console.error("Failed to generate learning path:", error);
       toast.error((error as Error).message || "Failed to generate learning path");
     } finally {
-      setIsLoading(false);
+      setIsRegenerating(false);
     }
   };
 

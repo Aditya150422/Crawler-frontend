@@ -93,9 +93,12 @@ export default function DashboardLayout({
     });
   }, [fetchUser, router, user]);
 
-  useEffect(() => {
+  // Close the mobile sidebar whenever the route changes
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setSidebarOpen(false);
-  }, [pathname]);
+  }
 
   // Handle keyboard shortcut for search
   useEffect(() => {

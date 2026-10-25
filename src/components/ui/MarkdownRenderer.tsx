@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, memo, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { Check, Copy, ChevronDown, ChevronRight, Code2, FileCode } from "lucide-react";
@@ -282,7 +282,7 @@ export const MarkdownRenderer = memo(({ content, className }: MarkdownRendererPr
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
-          code: CodeBlock as any,
+          code: CodeBlock as unknown as Components["code"],
           ...HeadingComponents,
           ...ListComponents,
           ...ElementComponents,

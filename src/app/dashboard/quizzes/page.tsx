@@ -38,7 +38,8 @@ const DEFAULT_MIN_DISTINCT_URLS = 2;
 export default function QuizzesPage() {
   const { user } = useAuthStore();
   const [collections, setCollections] = useState<QuizCollectionInfo[]>([]);
-  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(true);
+  const [collectionsReloadKey, setCollectionsReloadKey] = useState(0);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>("");
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [scopeMode, setScopeMode] = useState<QuizScopeMode>("focused");
@@ -59,22 +60,25 @@ export default function QuizzesPage() {
   const [result, setResult] = useState<QuizSubmitResponse | null>(null);
 
   useEffect(() => {
-    loadQuizCollections();
-  }, []);
+    api
+      .getQuizCollections()
+      .then((response) => {
+        setCollections(response.collections);
+        if (response.collections.length > 0) {
+          setSelectedCollectionId(
+            (current) => current || response.collections[0].collection_id
+          );
+        }
+      })
+      .catch((error) => {
+        toast.error((error as Error).message || "Failed to load quiz collections");
+      })
+      .finally(() => setIsLoadingCollections(false));
+  }, [collectionsReloadKey]);
 
-  const loadQuizCollections = async () => {
+  const loadQuizCollections = () => {
     setIsLoadingCollections(true);
-    try {
-      const response = await api.getQuizCollections();
-      setCollections(response.collections);
-      if (!selectedCollectionId && response.collections.length > 0) {
-        setSelectedCollectionId(response.collections[0].collection_id);
-      }
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to load quiz collections");
-    } finally {
-      setIsLoadingCollections(false);
-    }
+    setCollectionsReloadKey((key) => key + 1);
   };
 
   const currentQuestion: QuizQuestion | null =

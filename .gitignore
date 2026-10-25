@@ -56,3 +56,7 @@ $RECYCLE.BIN/
 *.tmp
 *.swp
 *.swo
+
+# Local env files and TypeScript build info
+.env*.local
+*.tsbuildinfo

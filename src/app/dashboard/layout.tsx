@@ -78,12 +78,20 @@ export default function DashboardLayout({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Send logged-out visitors to /login; with a token, confirm it's still valid first
   useEffect(() => {
+    if (user) return;
     const token = localStorage.getItem("token");
-    if (token && !user) {
-      fetchUser();
+    if (!token) {
+      router.replace("/login");
+      return;
     }
-  }, [fetchUser, user]);
+    fetchUser().then(() => {
+      if (!useAuthStore.getState().user) {
+        router.replace("/login");
+      }
+    });
+  }, [fetchUser, router, user]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -116,6 +124,14 @@ export default function DashboardLayout({
     );
     return item?.label || "Dashboard";
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-950">

@@ -55,7 +55,7 @@ A modern, futuristic Next.js application for the WebScrapper AI platform. This f
 
 - Node.js 18+ 
 - npm or yarn
-- Backend server running on `http://localhost:8000`
+- Backend server running on `http://localhost:3000`
 
 ### Installation
 
@@ -72,7 +72,7 @@ npm run dev
 Create a `.env.local` file:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
 ## Project Structure
